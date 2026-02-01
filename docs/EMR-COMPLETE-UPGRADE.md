@@ -391,7 +391,7 @@ https://5173-ipzhumqze4z2rrgqyymtx-ad490db5.sandbox.novita.ai
 - https://5173-ipzhumqze4z2rrgqyymtx-ad490db5.sandbox.novita.ai/patients/E1001/notes
 
 ### **Repository**
-- **GitHub**: https://github.com/blackynail-prog/my-web
+- **GitHub**: https://github.com/blackynail-prog/emr
 - **Branch**: genspark_ai_developer
 - **Commit**: cf53448
 
@@ -469,7 +469,7 @@ The PR description should include:
 
 ### **PR Link** (to be created)
 ```
-https://github.com/blackynail-prog/my-web/pull/[NUMBER]
+https://github.com/blackynail-prog/emr/pull/[NUMBER]
 ```
 
 ---

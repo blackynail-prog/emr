@@ -285,12 +285,12 @@ feat: Add EMR simulation system for nursing education
 
 **Create PR manually at:**
 ```
-https://github.com/blackynail-prog/my-web/compare/main...genspark_ai_developer?expand=1
+https://github.com/blackynail-prog/emr/compare/main...genspark_ai_developer?expand=1
 ```
 
 Or view the pushed branch:
 ```
-https://github.com/blackynail-prog/my-web/tree/genspark_ai_developer
+https://github.com/blackynail-prog/emr/tree/genspark_ai_developer
 ```
 
 ---

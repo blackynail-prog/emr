@@ -225,7 +225,7 @@ chore: 프로젝트 구조 정리 및 문서화
 - **브랜치**: genspark_ai_developer
 - **최신 커밋**: 10aa751
 - **상태**: Pushed to remote
-- **리포지토리**: blackynail-prog/my-web
+- **리포지토리**: blackynail-prog/emr
 
 ### 라이브 URL
 - https://5173-ipzhumqze4z2rrgqyymtx-ad490db5.sandbox.novita.ai

@@ -3,7 +3,7 @@
 **Date**: 2026-02-01  
 **Branch**: genspark_ai_developer  
 **Latest Commit**: bdf0a75  
-**Repository**: https://github.com/blackynail-prog/my-web
+**Repository**: https://github.com/blackynail-prog/emr
 
 ---
 
@@ -211,7 +211,7 @@ npx tsc --noEmit
 ## 🌐 배포 정보
 
 - **Live URL**: https://5173-ipzhumqze4z2rrgqyymtx-ad490db5.sandbox.novita.ai
-- **Repository**: https://github.com/blackynail-prog/my-web
+- **Repository**: https://github.com/blackynail-prog/emr
 - **Branch**: genspark_ai_developer
 - **Latest Commit**: bdf0a75
 

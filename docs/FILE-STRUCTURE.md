@@ -221,7 +221,7 @@ npm run build        # 프로덕션 빌드
 ## 🌐 배포
 
 - **Live URL**: https://5173-ipzhumqze4z2rrgqyymtx-ad490db5.sandbox.novita.ai
-- **Repository**: https://github.com/blackynail-prog/my-web
+- **Repository**: https://github.com/blackynail-prog/emr
 - **Branch**: genspark_ai_developer
 - **Latest Commit**: 10aa751
 

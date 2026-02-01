@@ -484,5 +484,5 @@ The Labs, MAR, and Notes tabs are complete, tested, and ready for educational us
 
 **Date**: 2026-02-01  
 **Status**: ✅ PRODUCTION READY  
-**Repository**: blackynail-prog/my-web  
+**Repository**: blackynail-prog/emr  
 **Branch**: genspark_ai_developer

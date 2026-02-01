@@ -146,7 +146,7 @@ Render Banner + Tabs
 - **Notes Tab**: /patients/E1001/notes
 
 ### Git Status
-- **Repository**: blackynail-prog/my-web
+- **Repository**: blackynail-prog/emr
 - **Branch**: genspark_ai_developer
 - **Commit**: cf53448
 - **Status**: ✅ Pushed to remote
