@@ -23,12 +23,21 @@ interface ChartLayoutProps {
     pulse: string;
     rr: string;
     spo2: string;
+    pain?: string;
+    o2Device?: string;
+    o2Flow?: string;
     recordedAt: string;
   };
   latestLabs?: Array<{
     name: string;
     value: string;
+    flag?: string;
     abnormal: boolean;
+  }>;
+  activeMeds?: Array<{
+    name: string;
+    dose?: string;
+    route?: string;
   }>;
   allergies?: string[];
   isolation?: string;
@@ -45,6 +54,7 @@ export const ChartLayout: FC<ChartLayoutProps> = ({
   children,
   latestVitals,
   latestLabs,
+  activeMeds = [],
   allergies = [],
   isolation,
   fallRisk = false,
@@ -62,6 +72,124 @@ export const ChartLayout: FC<ChartLayoutProps> = ({
     { id: 'notes', label: 'Notes', icon: '📋' },
     { id: 'handoff', label: 'Handoff', icon: '🔄' },
   ];
+
+  // Helper: Classify vital sign severity
+  const getVitalSeverity = (vital: string, value: string): 'critical' | 'warning' | 'normal' => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return 'normal';
+
+    switch (vital) {
+      case 'sbp':
+        if (numValue < 90) return 'critical';
+        if (numValue > 160) return 'warning';
+        return 'normal';
+      case 'spo2':
+        if (numValue < 90) return 'critical';
+        if (numValue < 95) return 'warning';
+        return 'normal';
+      case 'temp':
+        if (numValue >= 38.5) return 'critical';
+        if (numValue >= 38.0) return 'warning';
+        if (numValue < 36.0) return 'warning';
+        return 'normal';
+      case 'hr':
+        if (numValue >= 130) return 'critical';
+        if (numValue >= 120 || numValue < 50) return 'warning';
+        return 'normal';
+      case 'rr':
+        if (numValue >= 30 || numValue < 10) return 'critical';
+        if (numValue >= 24 || numValue < 12) return 'warning';
+        return 'normal';
+      default:
+        return 'normal';
+    }
+  };
+
+  // Helper: Prioritize abnormal labs
+  const prioritizeLabs = (labs: Array<{ name: string; value: string; flag?: string; abnormal: boolean }>) => {
+    const priorityOrder = ['Lactate', 'K', 'Potassium', 'Na', 'Sodium', 'Creatinine', 'Hgb', 'Hemoglobin', 
+                           'WBC', 'Platelet', 'INR', 'Glucose', 'pH'];
+    
+    return labs
+      .filter(lab => lab.abnormal || lab.flag === 'H' || lab.flag === 'L')
+      .sort((a, b) => {
+        const aIndex = priorityOrder.findIndex(p => a.name.includes(p));
+        const bIndex = priorityOrder.findIndex(p => b.name.includes(p));
+        if (aIndex === -1 && bIndex === -1) return 0;
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      });
+  };
+
+  // Helper: Classify medications by category
+  const classifyMed = (name: string): string | null => {
+    const lowerName = name.toLowerCase();
+    
+    if (lowerName.includes('norepinephrine') || lowerName.includes('dopamine') || 
+        lowerName.includes('vasopressin') || lowerName.includes('epinephrine')) {
+      return 'vasopressor';
+    }
+    if (lowerName.includes('penem') || lowerName.includes('cef') || 
+        lowerName.includes('piperacillin') || lowerName.includes('vancomycin') ||
+        lowerName.includes('azithromycin') || lowerName.includes('levofloxacin')) {
+      return 'antibiotic';
+    }
+    if (lowerName.includes('furosemide') || lowerName.includes('lasix') ||
+        lowerName.includes('spironolactone')) {
+      return 'diuretic';
+    }
+    if (lowerName.includes('heparin') || lowerName.includes('enoxaparin') ||
+        lowerName.includes('warfarin')) {
+      return 'anticoagulant';
+    }
+    return null;
+  };
+
+  // Process vitals for display
+  const processedVitals = latestVitals ? {
+    sbp: latestVitals.bp.split('/')[0],
+    dbp: latestVitals.bp.split('/')[1] || '',
+    hr: latestVitals.pulse,
+    rr: latestVitals.rr,
+    temp: latestVitals.temp,
+    spo2: latestVitals.spo2,
+    pain: latestVitals.pain || '-',
+    o2Device: latestVitals.o2Device || (parseFloat(latestVitals.spo2) < 95 ? 'NC' : 'RA'),
+    o2Flow: latestVitals.o2Flow || '',
+    time: latestVitals.recordedAt.split(' ')[1] || latestVitals.recordedAt,
+  } : null;
+
+  // Process abnormal labs (top 3)
+  const prioritizedLabs = latestLabs ? prioritizeLabs(latestLabs) : [];
+  const topAbnormalLabs = prioritizedLabs.slice(0, 3);
+  const abnormalCount = prioritizedLabs.length;
+
+  // Process key medications
+  const keyMeds = activeMeds.filter(med => classifyMed(med.name) !== null);
+  const topKeyMeds = keyMeds.slice(0, 3);
+
+  // Generate safety alerts
+  const safetyAlerts: string[] = [];
+  if (processedVitals) {
+    const sbpNum = parseFloat(processedVitals.sbp);
+    const spo2Num = parseFloat(processedVitals.spo2);
+    const tempNum = parseFloat(processedVitals.temp);
+    const hrNum = parseFloat(processedVitals.hr);
+
+    if (!isNaN(sbpNum) && sbpNum < 90) {
+      safetyAlerts.push(`저혈압 경고: SBP ${sbpNum}`);
+    }
+    if (!isNaN(spo2Num) && spo2Num < 90) {
+      safetyAlerts.push(`저산소증 경고: SpO₂ ${spo2Num}%`);
+    }
+    if (!isNaN(tempNum) && tempNum >= 38.5) {
+      safetyAlerts.push(`고열 경고: ${tempNum}°C`);
+    }
+    if (!isNaN(hrNum) && hrNum >= 130) {
+      safetyAlerts.push(`빈맥 경고: HR ${hrNum}`);
+    }
+  }
 
   return (
     <html lang="ko">
@@ -478,6 +606,140 @@ export const ChartLayout: FC<ChartLayoutProps> = ({
             min-width: 24px;
           }
           
+          /* Clinical Decision Panel Styles */
+          .vital-critical {
+            color: #c53030;
+            font-weight: 700;
+            background: #fed7d7;
+            padding: 2px 4px;
+            border-radius: 3px;
+          }
+          
+          .vital-warning {
+            color: #c05621;
+            font-weight: 700;
+            background: #feebc8;
+            padding: 2px 4px;
+            border-radius: 3px;
+          }
+          
+          .vital-normal {
+            color: #2c3e50;
+            font-weight: 600;
+          }
+          
+          .lab-flag-badge {
+            display: inline-block;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 9px;
+            font-weight: 700;
+            margin-left: 4px;
+          }
+          
+          .lab-flag-H {
+            background: #e74c3c;
+            color: white;
+          }
+          
+          .lab-flag-L {
+            background: #3498db;
+            color: white;
+          }
+          
+          .abnormal-count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e74c3c;
+            color: white;
+            font-weight: 700;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-left: 6px;
+          }
+          
+          .med-category {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 600;
+            margin-left: 6px;
+          }
+          
+          .med-vasopressor {
+            background: #fed7d7;
+            color: #c53030;
+          }
+          
+          .med-antibiotic {
+            background: #c6f6d5;
+            color: #22543d;
+          }
+          
+          .med-diuretic {
+            background: #bee3f8;
+            color: #2c5282;
+          }
+          
+          .med-anticoagulant {
+            background: #feebc8;
+            color: #c05621;
+          }
+          
+          .safety-alert {
+            background: #fed7d7;
+            border-left: 3px solid #e74c3c;
+            padding: 6px 8px;
+            margin: 4px 0;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #c53030;
+          }
+          
+          .safety-alert-icon {
+            margin-right: 4px;
+          }
+          
+          .empty-state {
+            color: #95a5a6;
+            font-size: 10px;
+            font-style: italic;
+            padding: 8px 0;
+            text-align: center;
+          }
+          
+          .o2-info {
+            display: inline-block;
+            background: #b2f5ea;
+            color: #234e52;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 6px;
+          }
+          
+          .alert-summary-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+          }
+          
+          .alert-summary-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+          }
+          
           /* Scrollbar Styling */
           ::-webkit-scrollbar {
             width: 8px;
@@ -632,54 +894,92 @@ export const ChartLayout: FC<ChartLayoutProps> = ({
             {children}
           </div>
 
-          {/* Right Quick Panel */}
+          {/* Clinical Decision Support Panel */}
           <div class="quick-panel">
-            {/* Latest Vitals */}
-            {latestVitals && (
+            {/* A) 최신 활력징후 (Latest Vitals) */}
+            {processedVitals && (
               <div class="quick-panel-section">
                 <div class="quick-panel-title">
                   <span>❤️</span>
-                  <span>Latest Vitals</span>
+                  <span>최신 활력징후</span>
                 </div>
                 <div class="quick-panel-content">
                   <div class="vital-row">
-                    <span class="vital-label">Temp</span>
-                    <span class="vital-value">{latestVitals.temp}°C</span>
-                  </div>
-                  <div class="vital-row">
                     <span class="vital-label">BP</span>
-                    <span class="vital-value">{latestVitals.bp}</span>
+                    <span class={`vital-value ${
+                      getVitalSeverity('sbp', processedVitals.sbp) === 'critical' ? 'vital-critical' :
+                      getVitalSeverity('sbp', processedVitals.sbp) === 'warning' ? 'vital-warning' : 'vital-normal'
+                    }`}>
+                      {processedVitals.sbp}/{processedVitals.dbp}
+                    </span>
                   </div>
                   <div class="vital-row">
-                    <span class="vital-label">Pulse</span>
-                    <span class="vital-value">{latestVitals.pulse}</span>
+                    <span class="vital-label">HR</span>
+                    <span class={`vital-value ${
+                      getVitalSeverity('hr', processedVitals.hr) === 'critical' ? 'vital-critical' :
+                      getVitalSeverity('hr', processedVitals.hr) === 'warning' ? 'vital-warning' : 'vital-normal'
+                    }`}>
+                      {processedVitals.hr} bpm
+                    </span>
                   </div>
                   <div class="vital-row">
                     <span class="vital-label">RR</span>
-                    <span class="vital-value">{latestVitals.rr}</span>
+                    <span class={`vital-value ${
+                      getVitalSeverity('rr', processedVitals.rr) === 'critical' ? 'vital-critical' :
+                      getVitalSeverity('rr', processedVitals.rr) === 'warning' ? 'vital-warning' : 'vital-normal'
+                    }`}>
+                      {processedVitals.rr} /min
+                    </span>
                   </div>
                   <div class="vital-row">
-                    <span class="vital-label">SpO2</span>
-                    <span class="vital-value">{latestVitals.spo2}</span>
+                    <span class="vital-label">Temp</span>
+                    <span class={`vital-value ${
+                      getVitalSeverity('temp', processedVitals.temp) === 'critical' ? 'vital-critical' :
+                      getVitalSeverity('temp', processedVitals.temp) === 'warning' ? 'vital-warning' : 'vital-normal'
+                    }`}>
+                      {processedVitals.temp}°C
+                    </span>
                   </div>
-                  <div class="timestamp">{latestVitals.recordedAt}</div>
+                  <div class="vital-row">
+                    <span class="vital-label">SpO₂</span>
+                    <span class={`vital-value ${
+                      getVitalSeverity('spo2', processedVitals.spo2) === 'critical' ? 'vital-critical' :
+                      getVitalSeverity('spo2', processedVitals.spo2) === 'warning' ? 'vital-warning' : 'vital-normal'
+                    }`}>
+                      {processedVitals.spo2}%
+                      <span class="o2-info">
+                        {processedVitals.o2Device}{processedVitals.o2Flow ? ` ${processedVitals.o2Flow}L` : ''}
+                      </span>
+                    </span>
+                  </div>
+                  <div class="vital-row">
+                    <span class="vital-label">Pain</span>
+                    <span class="vital-value vital-normal">{processedVitals.pain}/10</span>
+                  </div>
+                  <div class="timestamp">{processedVitals.time}</div>
                 </div>
               </div>
             )}
 
-            {/* Abnormal Labs */}
-            {latestLabs && latestLabs.length > 0 && (
+            {/* B) 이상 검사 (Abnormal Labs) Top 3 */}
+            {topAbnormalLabs.length > 0 && (
               <div class="quick-panel-section">
                 <div class="quick-panel-title">
                   <span>🧪</span>
-                  <span>Abnormal Labs</span>
+                  <span>이상 검사</span>
+                  {abnormalCount > 0 && (
+                    <span class="abnormal-count-badge">이상 {abnormalCount}</span>
+                  )}
                 </div>
                 <div class="quick-panel-content">
-                  {latestLabs.map((lab) => (
+                  {topAbnormalLabs.map((lab) => (
                     <div class="lab-row">
                       <span class="lab-label">{lab.name}</span>
                       <span class={`lab-value ${lab.abnormal ? 'abnormal' : ''}`}>
                         {lab.value}
+                        {lab.flag && (
+                          <span class={`lab-flag-badge lab-flag-${lab.flag}`}>{lab.flag}</span>
+                        )}
                       </span>
                     </div>
                   ))}
@@ -687,28 +987,85 @@ export const ChartLayout: FC<ChartLayoutProps> = ({
               </div>
             )}
 
-            {/* Active Medications */}
+            {/* C) Key Meds / Drips */}
             <div class="quick-panel-section">
               <div class="quick-panel-title">
                 <span>💊</span>
-                <span>Active Meds</span>
-                <span class="meds-count">{activeMedsCount}</span>
+                <span>주요 약제</span>
+                <span class="meds-count">{keyMeds.length}</span>
+              </div>
+              <div class="quick-panel-content">
+                {topKeyMeds.length > 0 ? (
+                  topKeyMeds.map((med) => {
+                    const category = classifyMed(med.name);
+                    return (
+                      <div class="lab-row">
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                          <div style="font-size: 11px; font-weight: 600; color: #2c3e50;">
+                            {med.name}
+                            {category && (
+                              <span class={`med-category med-${category}`}>
+                                {category === 'vasopressor' ? '승압제' :
+                                 category === 'antibiotic' ? '항생제' :
+                                 category === 'diuretic' ? '이뇨제' :
+                                 category === 'anticoagulant' ? '항응고제' : category}
+                              </span>
+                            )}
+                          </div>
+                          {med.dose && med.route && (
+                            <div style="font-size: 9px; color: #7f8c8d;">
+                              {med.dose} {med.route}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div class="empty-state">중요 약제 없음</div>
+                )}
               </div>
             </div>
 
-            {/* Patient Info */}
+            {/* D) Safety / Alerts Summary */}
             <div class="quick-panel-section">
               <div class="quick-panel-title">
-                <span>ℹ️</span>
-                <span>Patient Info</span>
+                <span>⚠️</span>
+                <span>안전 알림</span>
               </div>
               <div class="quick-panel-content">
-                <div class="info-row">
-                  <span class="info-label">Diagnosis</span>
+                {/* Compact alert badges */}
+                <div class="alert-summary-badges">
+                  {allergies.length > 0 && (
+                    <span class="alert-summary-badge alert-allergy" title={allergies.join(', ')}>
+                      알러지 {allergies.length}
+                    </span>
+                  )}
+                  {isolation && (
+                    <span class="alert-summary-badge alert-isolation">
+                      격리: {isolation}
+                    </span>
+                  )}
+                  {fallRisk && (
+                    <span class="alert-summary-badge alert-fall">낙상위험</span>
+                  )}
                 </div>
-                <div style="font-size: 10px; color: #2c3e50; padding: 4px 0; font-weight: 500;">
-                  {patient.diagnosis}
-                </div>
+                
+                {/* Critical vital alerts */}
+                {safetyAlerts.length > 0 && (
+                  <div style="margin-top: 8px;">
+                    {safetyAlerts.map((alert) => (
+                      <div class="safety-alert">
+                        <span class="safety-alert-icon">🚨</span>
+                        {alert}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {safetyAlerts.length === 0 && allergies.length === 0 && !isolation && !fallRisk && (
+                  <div class="empty-state">현재 경고 없음</div>
+                )}
               </div>
             </div>
           </div>
