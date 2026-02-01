@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "dev:sandbox": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
-    "build": "vite build && cp -r public/* dist/",
+    "build": "vite build && mkdir -p dist && cp -r public/* dist/ || true",
     "preview": "wrangler pages dev",
     "deploy": "npm run build && wrangler pages deploy",
     "deploy:prod": "npm run build && wrangler pages deploy dist --project-name webapp",
