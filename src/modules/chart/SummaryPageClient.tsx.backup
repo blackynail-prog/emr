@@ -1,0 +1,504 @@
+/**
+ * SummaryPageClient.tsx
+ * Client-side Patient Chart Summary with real data fetching
+ * Uses useEffect + loading state
+ */
+
+import { FC } from 'hono/jsx';
+
+interface SummaryPageClientProps {
+  encounterId?: string | null;
+  patientId?: string | null;
+}
+
+export const SummaryPageClient: FC<SummaryPageClientProps> = ({ encounterId, patientId }) => {
+  const id = encounterId || patientId || 'unknown';
+  const idType = encounterId ? 'encounter' : 'patient';
+  
+  return (
+    <html lang="ko">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Loading Chart...</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>{`
+          /* Same EMR styles from ChartLayout */
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+            font-size: 13px;
+            line-height: 1.4;
+            color: #2c3e50;
+            background: #ecf0f1;
+            overflow: hidden;
+          }
+          
+          /* Layout Grid */
+          .emr-container {
+            display: grid;
+            grid-template-columns: 200px 1fr 280px;
+            grid-template-rows: 70px 1fr;
+            grid-template-areas:
+              "sidebar banner banner"
+              "sidebar content quick";
+            height: 100vh;
+          }
+          
+          /* Patient Banner */
+          .patient-banner {
+            grid-area: banner;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            color: white;
+            padding: 8px 16px;
+            border-bottom: 3px solid #2980b9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+          
+          .patient-name { font-size: 18px; font-weight: 700; }
+          .patient-details { font-size: 11px; color: #bdc3c7; display: flex; gap: 12px; }
+          
+          .badge {
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .badge-allergy {
+            background: #e74c3c;
+            color: white;
+            animation: pulse 2s ease-in-out infinite;
+          }
+          
+          .badge-isolation {
+            background: #e67e22;
+            color: white;
+          }
+          
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+          }
+          
+          /* Sidebar */
+          .sidebar {
+            grid-area: sidebar;
+            background: #2c3e50;
+            border-right: 1px solid #34495e;
+            overflow-y: auto;
+          }
+          
+          .sidebar-menu { list-style: none; padding: 8px 4px; }
+          .sidebar-menu li { margin-bottom: 2px; }
+          .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            color: #bdc3c7;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+          }
+          .sidebar-menu a:hover { background: rgba(52, 73, 94, 0.5); }
+          .sidebar-menu a.active {
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+          }
+          
+          /* Main Content */
+          .main-content {
+            grid-area: content;
+            background: #f8f9fa;
+            padding: 16px;
+            overflow-y: auto;
+          }
+          
+          /* Quick Panel */
+          .quick-panel {
+            grid-area: quick;
+            background: #ffffff;
+            border-left: 1px solid #dfe6e9;
+            overflow-y: auto;
+            padding: 12px;
+          }
+          
+          .quick-panel-section {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ecf0f1;
+          }
+          
+          .quick-panel-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+          }
+          
+          .vital-row, .lab-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 11px;
+          }
+          
+          .vital-label { color: #7f8c8d; font-size: 10px; }
+          .vital-value { font-weight: 600; color: #2c3e50; }
+          .lab-value.abnormal { color: #e74c3c; font-weight: 700; }
+          
+          .meds-count {
+            display: inline-flex;
+            background: #3498db;
+            color: white;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+          }
+          
+          /* Loading state */
+          .loading-spinner {
+            border: 4px solid #ecf0f1;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+          }
+          
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          /* Responsive */
+          @media (max-width: 1280px) {
+            .emr-container {
+              grid-template-columns: 200px 1fr;
+              grid-template-areas: "sidebar banner" "sidebar content";
+            }
+            .quick-panel { display: none; }
+          }
+        `}</style>
+      </head>
+      <body>
+        <div id="app">
+          <div class="flex items-center justify-center h-screen">
+            <div class="text-center">
+              <div class="loading-spinner mx-auto mb-4"></div>
+              <p class="text-gray-600">Loading patient chart...</p>
+            </div>
+          </div>
+        </div>
+        
+        <script dangerouslySetInnerHTML={{__html: `
+          const id = '${id}';
+          const idType = '${idType}';
+          let chartData = null;
+          
+          // Fetch chart data
+          async function loadChartData() {
+            try {
+              // Use appropriate endpoint based on ID type
+              const endpoint = idType === 'encounter' 
+                ? '/api/emr/encounters/' + id + '/chart'
+                : '/api/emr/patients/' + id + '/chart';
+                
+              const response = await fetch(endpoint);
+              if (!response.ok) {
+                throw new Error('Failed to load chart data');
+              }
+              chartData = await response.json();
+              renderChart();
+            } catch (error) {
+              document.getElementById('app').innerHTML = \`
+                <div class="flex items-center justify-center h-screen">
+                  <div class="text-center">
+                    <div class="text-red-500 text-5xl mb-4">⚠️</div>
+                    <p class="text-gray-900 font-bold text-xl mb-2">Error Loading Chart</p>
+                    <p class="text-gray-600">\${error.message}</p>
+                    <a href="/patients" class="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded">
+                      Back to Patient List
+                    </a>
+                  </div>
+                </div>
+              \`;
+            }
+          }
+          
+          // Render chart with data
+          function renderChart() {
+            // Use new ChartBundle structure
+            const { encounter, alerts, vitals, labs, medications, timeline } = chartData;
+            const abnormalLabs = labs.abnormal || [];
+            const latestVitals = vitals.latest;
+            const activeMeds = medications.active || [];
+            
+            document.getElementById('app').innerHTML = \`
+              <div class="emr-container">
+                <!-- Patient Banner -->
+                <div class="patient-banner">
+                  <div style="display: flex; align-items: center; gap: 16px;">
+                    <a href="/patients" style="color: #3498db; font-size: 11px;">← Back</a>
+                    <div>
+                      <div class="patient-name">\${encounter.name}</div>
+                      <div class="patient-details">
+                        <span>\${encounter.gender === 'M' ? 'Male' : 'Female'}</span>
+                        <span>|</span>
+                        <span>\${encounter.age}y</span>
+                        <span>|</span>
+                        <span>MRN: \${encounter.mrn}</span>
+                        <span>|</span>
+                        <span>\${encounter.ward} \${encounter.room}\${encounter.bed}</span>
+                        <span>|</span>
+                        <span>Adm: \${encounter.admissionDate.split(' ')[0]}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 8px;">
+                    \${alerts.allergy && encounter.allergies.length > 0 ? \`
+                      <div class="badge badge-allergy" title="\${encounter.allergies.join(', ')}">
+                        ⚠️ ALLERGIES (\${encounter.allergies.length})
+                      </div>
+                    \` : ''}
+                    \${alerts.isolation ? \`
+                      <div class="badge badge-isolation">
+                        🛡️ \${alerts.isolationType || 'ISOLATION'}
+                      </div>
+                    \` : ''}
+                  </div>
+                </div>
+                
+                <!-- Sidebar -->
+                <div class="sidebar">
+                  <ul class="sidebar-menu">
+                    <li><a href="/patients/\${encounter.encounterId}?tab=summary" class="active">
+                      <span>📊</span><span>Summary</span>
+                    </a></li>
+                    <li><a href="/patients/\${encounter.encounterId}?tab=orders">
+                      <span>📝</span><span>Orders</span>
+                    </a></li>
+                    <li><a href="/patients/\${encounter.encounterId}?tab=labs">
+                      <span>🧪</span><span>Labs</span>
+                    </a></li>
+                    <li><a href="/patients/\${encounter.encounterId}?tab=mar">
+                      <span>💊</span><span>MAR</span>
+                    </a></li>
+                    <li><a href="/patients/\${encounter.encounterId}?tab=vitals">
+                      <span>❤️</span><span>Vitals</span>
+                    </a></li>
+                    <li><a href="/patients/\${encounter.encounterId}?tab=notes">
+                      <span>📋</span><span>Notes</span>
+                    </a></li>
+                    <li><a href="/patients/\${encounter.encounterId}?tab=handoff">
+                      <span>🔄</span><span>Handoff</span>
+                    </a></li>
+                  </ul>
+                </div>
+                    <li><a href="/patients/\${patient.id}?tab=vitals">
+                      <span>❤️</span><span>Vitals</span>
+                    </a></li>
+                    <li><a href="/patients/\${patient.id}?tab=notes">
+                      <span>📋</span><span>Notes</span>
+                    </a></li>
+                    <li><a href="/patients/\${patient.id}?tab=handoff">
+                      <span>🔄</span><span>Handoff</span>
+                    </a></li>
+                  </ul>
+                </div>
+                
+                <!-- Main Content -->
+                <div class="main-content">
+                  <div style="margin-bottom: 24px;">
+                    <h2 style="font-size: 24px; font-weight: 700; color: #2c3e50;">Chart Summary</h2>
+                    <p style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">환자 차트 요약</p>
+                  </div>
+                  
+                  <!-- Patient Info Card -->
+                  <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px;">
+                    <h3 style="font-weight: 700; font-size: 16px; margin-bottom: 16px;">환자 정보</h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                      <div>
+                        <p style="font-size: 12px; color: #7f8c8d;">이름</p>
+                        <p style="font-weight: 600; color: #2c3e50;">\${patient.name}</p>
+                      </div>
+                      <div>
+                        <p style="font-size: 12px; color: #7f8c8d;">등록번호</p>
+                        <p style="font-weight: 600; color: #2c3e50;">\${patient.mrn}</p>
+                      </div>
+                      <div>
+                        <p style="font-size: 12px; color: #7f8c8d;">나이/성별</p>
+                        <p style="font-weight: 600; color: #2c3e50;">\${patient.age}세 / \${patient.gender === 'M' ? '남성' : '여성'}</p>
+                      </div>
+                      <div>
+                        <p style="font-size: 12px; color: #7f8c8d;">병실</p>
+                        <p style="font-weight: 600; color: #2c3e50;">\${patient.room}</p>
+                      </div>
+                      <div style="grid-column: span 2;">
+                        <p style="font-size: 12px; color: #7f8c8d;">진단명</p>
+                        <p style="font-weight: 600; color: #2c3e50;">\${patient.diagnosis}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Allergies Alert -->
+                  \${allergies.length > 0 ? \`
+                    <div style="background: #fee; border-left: 4px solid #e74c3c; padding: 16px; border-radius: 4px; margin-bottom: 24px;">
+                      <div style="font-weight: 700; color: #c0392b; margin-bottom: 8px;">⚠️ ALLERGIES</div>
+                      <ul style="list-style: disc; padding-left: 20px; color: #c0392b;">
+                        \${allergies.map(a => \`<li>\${a}</li>\`).join('')}
+                      </ul>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- Latest Vitals -->
+                  <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                      <h3 style="font-weight: 700; font-size: 16px;">최근 활력징후</h3>
+                      <span style="font-size: 11px; color: #7f8c8d;">\${vitals.recordedAt}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+                      <div style="border: 1px solid #dfe6e9; border-radius: 4px; padding: 12px;">
+                        <p style="font-size: 10px; color: #7f8c8d; margin-bottom: 4px;">체온</p>
+                        <p style="font-size: 20px; font-weight: 700; color: #2c3e50;">\${vitals.temp}°C</p>
+                      </div>
+                      <div style="border: 1px solid #dfe6e9; border-radius: 4px; padding: 12px;">
+                        <p style="font-size: 10px; color: #7f8c8d; margin-bottom: 4px;">혈압</p>
+                        <p style="font-size: 20px; font-weight: 700; color: #2c3e50;">\${vitals.bp}</p>
+                      </div>
+                      <div style="border: 1px solid #dfe6e9; border-radius: 4px; padding: 12px;">
+                        <p style="font-size: 10px; color: #7f8c8d; margin-bottom: 4px;">맥박</p>
+                        <p style="font-size: 20px; font-weight: 700; color: #2c3e50;">\${vitals.pulse}</p>
+                      </div>
+                      <div style="border: 1px solid #dfe6e9; border-radius: 4px; padding: 12px;">
+                        <p style="font-size: 10px; color: #7f8c8d; margin-bottom: 4px;">호흡</p>
+                        <p style="font-size: 20px; font-weight: 700; color: #2c3e50;">\${vitals.rr}</p>
+                      </div>
+                      <div style="border: 1px solid #dfe6e9; border-radius: 4px; padding: 12px;">
+                        <p style="font-size: 10px; color: #7f8c8d; margin-bottom: 4px;">SpO2</p>
+                        <p style="font-size: 20px; font-weight: 700; color: #2c3e50;">\${vitals.spo2}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Abnormal Labs -->
+                  \${abnormalLabs.length > 0 ? \`
+                    <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px;">
+                      <h3 style="font-weight: 700; font-size: 16px; margin-bottom: 16px;">
+                        이상 검사 결과 (\${abnormalLabs.length})
+                      </h3>
+                      <div style="display: flex; flex-direction: column; gap: 12px;">
+                        \${abnormalLabs.map(lab => \`
+                          <div style="border-left: 4px solid #e74c3c; background: #fee; padding: 12px; border-radius: 4px; display: flex; justify-content: space-between;">
+                            <div>
+                              <p style="font-weight: 600; color: #2c3e50;">\${lab.name}</p>
+                              <p style="font-size: 11px; color: #7f8c8d;">참고범위: \${lab.reference}</p>
+                            </div>
+                            <div style="text-align: right;">
+                              <p style="font-size: 16px; font-weight: 700; color: #e74c3c;">\${lab.value} \${lab.unit}</p>
+                            </div>
+                          </div>
+                        \`).join('')}
+                      </div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- Active Medications -->
+                  <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px;">
+                    <h3 style="font-weight: 700; font-size: 16px; margin-bottom: 16px;">
+                      활성 처방 (\${medications.length})
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                      \${medications.map(med => \`
+                        <div style="border-left: 4px solid #3498db; background: #e8f4f8; padding: 12px; border-radius: 4px;">
+                          <p style="font-weight: 600; color: #2c3e50;">\${med.name}</p>
+                          <p style="font-size: 12px; color: #34495e; margin-top: 4px;">
+                            \${med.dose} - \${med.route} - \${med.frequency}
+                          </p>
+                        </div>
+                      \`).join('')}
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Quick Panel -->
+                <div class="quick-panel">
+                  <!-- Latest Vitals -->
+                  <div class="quick-panel-section">
+                    <div class="quick-panel-title">❤️ Latest Vitals</div>
+                    <div class="vital-row">
+                      <span class="vital-label">Temp</span>
+                      <span class="vital-value">\${vitals.temp}°C</span>
+                    </div>
+                    <div class="vital-row">
+                      <span class="vital-label">BP</span>
+                      <span class="vital-value">\${vitals.bp}</span>
+                    </div>
+                    <div class="vital-row">
+                      <span class="vital-label">Pulse</span>
+                      <span class="vital-value">\${vitals.pulse}</span>
+                    </div>
+                    <div class="vital-row">
+                      <span class="vital-label">RR</span>
+                      <span class="vital-value">\${vitals.rr}</span>
+                    </div>
+                    <div class="vital-row">
+                      <span class="vital-label">SpO2</span>
+                      <span class="vital-value">\${vitals.spo2}</span>
+                    </div>
+                    <div style="font-size: 9px; color: #95a5a6; margin-top: 4px; font-style: italic;">
+                      \${vitals.recordedAt}
+                    </div>
+                  </div>
+                  
+                  <!-- Abnormal Labs -->
+                  \${abnormalLabs.length > 0 ? \`
+                    <div class="quick-panel-section">
+                      <div class="quick-panel-title">🧪 Abnormal Labs (\${abnormalLabs.length})</div>
+                      \${abnormalLabs.slice(0, 5).map(lab => \`
+                        <div class="lab-row">
+                          <span class="vital-label">\${lab.name}</span>
+                          <span class="lab-value abnormal">\${lab.value} \${lab.unit}</span>
+                        </div>
+                      \`).join('')}
+                    </div>
+                  \` : ''}
+                  
+                  <!-- Active Meds -->
+                  <div class="quick-panel-section">
+                    <div class="quick-panel-title">
+                      💊 Active Meds
+                      <span class="meds-count">\${medications.length}</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Patient Info -->
+                  <div class="quick-panel-section">
+                    <div class="quick-panel-title">ℹ️ Patient Info</div>
+                    <div style="font-size: 10px; color: #2c3e50; font-weight: 500; padding: 4px 0;">
+                      \${patient.diagnosis}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            \`;
+          }
+          
+          // Start loading
+          loadChartData();
+        `}} />
+      </body>
+    </html>
+  );
+};

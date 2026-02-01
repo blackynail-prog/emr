@@ -1,0 +1,23 @@
+{
+  "pepper": "dev-random-pepper-string-for-hashing-salt-2026",
+  "codes": [
+    {
+      "code": "SWCN_CMC2026",
+      "hospital_id": "uijeongbu",
+      "hospital_name": "가톨릭대학교 의정부성모병원",
+      "hash": "592bc6ea6564b72a47cf698900c0da00b2f4b9e2c81acc089c79693ec6eb168b"
+    },
+    {
+      "code": "SWCN_NHIS2026",
+      "hospital_id": "ilsan",
+      "hospital_name": "국민건강보험공단 일산병원",
+      "hash": "085db33be8f8516e95db897aa257aae933a5228ed11c51e2ccbe7e180bd243e4"
+    },
+    {
+      "code": "SWCN_KHUH2026",
+      "hospital_id": "gangdong",
+      "hospital_name": "강동경희대병원",
+      "hash": "30e8ccb04e5a862407dbde13ada1e156ed904b0b0d9ca73b9b923bc3069a9f57"
+    }
+  ]
+}
